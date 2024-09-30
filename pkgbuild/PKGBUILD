@@ -1,72 +1,45 @@
-# Maintainer: Tales A. Mendonça <talesam@gmail.com>
+# Maintainer: Tales A. Mendonça (talesam@gmail.com)
 
-pkgname=pkgbuild-template
-pkgdesc="Package template for Communitybig"
-# Uncomment and edit the following lines as needed
-#depends=('')
-#makedepends=('')
-#optdepends=('')
-#conflicts=('')
-#provides=('')
-#replaces=('')
+pkgname=gnome-shell-extension-pano
+pkgdesc="Next-gen Clipboard Manager for GNOME Shell (forked from -git package)"
 pkgver=$(date +%y.%m.%d)
 pkgrel=$(date +%H%M)
 arch=('any')
-license=('MIT')
-url="https://github.com/communitybig/${pkgname}"
+license=('GPL-2.0-or-later')
+url="https://github.com/oae/gnome-shell-pano"
+depends=('gnome-shell>=45'
+         'libgda6'
+         'cogl'
+         'gsound')
+makedepends=('gobject-introspection'
+             'yarn'
+             'appstream'
+             'zip')
+provides=("$pkgname")
 source=("git+${url}.git")
 md5sums=('SKIP')
 
-# Automatically detect and use the correct install file
-if [ -e "${pkgname}.install" ]; then
-    install=${pkgname}.install
-elif [ -e "pkgbuild.install" ]; then
-    install=pkgbuild.install
-fi
-
 prepare() {
-    cd "${srcdir}/${pkgname}"
-    # Add any preparation steps here, if needed
-    # For example: patch -p1 < "${srcdir}/patch-file.patch"
+  cd "${srcdir}/gnome-shell-pano"
+  yarn install
 }
 
 build() {
-    cd "${srcdir}/${pkgname}"
-    # Add build steps here, if needed
-    # For example: make
-}
-
-check() {
-    cd "${srcdir}/${pkgname}"
-    # Add check/test steps here, if needed
-    # For example: make check
+  cd "${srcdir}/gnome-shell-pano"
+  yarn build:package
 }
 
 package() {
-    cd "${srcdir}/${pkgname}"
+  cd "${srcdir}/gnome-shell-pano/dist"
 
-    # Determine the correct source directory
-    if [ -d "${pkgname}" ]; then
-        srcdir="${srcdir}/${pkgname}/${pkgname}"
-    else
-        srcdir="${srcdir}/${pkgname}"
-    fi
+  local uuid=$(grep -Po '(?<="uuid": ")[^"]*' metadata.json)
+  local schema=$(grep -Po '(?<="settings-schema": ")[^"]*' metadata.json).gschema.xml
+  local destdir="${pkgdir}/usr/share/gnome-shell/extensions/${uuid}"
 
-    # Install files
-    local dirs=("usr" "etc" "opt")
-    for dir in "${dirs[@]}"; do
-        if [ -d "${srcdir}/${dir}" ]; then
-            cp -a "${srcdir}/${dir}" "${pkgdir}/"
-        fi
-    done
+  install -d "${destdir}"
+  bsdtar xvf "${uuid}.zip" -C "${destdir}/"
+  install -Dm644 "schemas/${schema}" -t "${pkgdir}/usr/share/glib-2.0/schemas/"
 
-    # Install license file if present
-    if [ -f "LICENSE" ]; then
-        install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-    fi
-
-    # Install documentation if present
-    if [ -f "README.md" ]; then
-        install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-    fi
+  # Clean up schema directory after installation
+  rm -rf "${destdir}/schemas"
 }
